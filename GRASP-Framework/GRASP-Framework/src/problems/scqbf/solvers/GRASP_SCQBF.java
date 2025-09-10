@@ -25,6 +25,9 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
     private final SCQBF scqbfObjectiveFunction;
     private final Random random = new Random();
+    
+    public enum ConstructionType { SUBTRACTIVE, RANDOM_GREEDY, SAMPLED_GREEDY }
+    private final ConstructionType constructionType;
 
     /**
      * A helper class to store a candidate for removal and its associated cost.
@@ -54,9 +57,10 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
      * @param filename  
      * @throws IOException
      */
-    public GRASP_SCQBF(Double alpha, Integer iterations, String filename) throws IOException {
+    public GRASP_SCQBF(Double alpha, Integer iterations, String filename, ConstructionType constructionType) throws IOException {
         super(new SCQBF(filename), alpha, iterations);
         this.scqbfObjectiveFunction = (SCQBF) this.ObjFunction;
+        this.constructionType = constructionType;
     }
 
     /**
@@ -68,17 +72,24 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         Solution<Integer> bestSol = null;
 
         for (int i = 0; i < iterations; i++) {
-            // Phase 1: Construction
-            Solution<Integer> currentSol = runSingleSubtractiveIteration();
-            
-            // Phase 2: Local Search
+        	//Escolhe a heurística
+        	Solution<Integer> currentSol;
+        	switch (constructionType) {
+            case RANDOM_GREEDY:
+                currentSol = constructRandomPlusGreedy(5); // sorteia 5 elementos
+                break;
+            case SAMPLED_GREEDY:
+                currentSol = constructSampledGreedy(10);   //avalia 10 elementos sorteados
+                break;
+            default:
+                currentSol = runSingleSubtractiveIteration();
+        	}
+        	// Phase 2: Local Search
             currentSol = localSearch(currentSol);
-
             if (bestSol == null || currentSol.cost < bestSol.cost) {
                 bestSol = new Solution<>(currentSol);
             }
         }
-
         return bestSol;
     }
 
@@ -244,6 +255,54 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
     	}
     	return solution;
     }
+    
+
+	private Solution<Integer> constructSampledGreedy(int sampleSize) {
+	    Solution<Integer> solution = createEmptySol();
+	    ArrayList<Integer> CL = makeCL();
+	
+	    while (!CL.isEmpty()) {
+	        // 1. Sorteia uma amostra da CL
+	        ArrayList<Integer> sample = new ArrayList<>(CL);
+	        Collections.shuffle(sample, random);
+	
+	        if (sample.size() > sampleSize) {
+	            sample = new ArrayList<>(sample.subList(0, sampleSize));
+	        }
+	
+	        // 2. Encontra min e max custos dentro da amostra
+	        double maxCost = Double.NEGATIVE_INFINITY;
+	        double minCost = Double.POSITIVE_INFINITY;
+	
+	        for (Integer cand : sample) {
+	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+	            if (deltaCost < minCost) minCost = deltaCost;
+	            if (deltaCost > maxCost) maxCost = deltaCost;
+	        }
+	
+	        // 3. Constrói RCL só com base na amostra
+	        ArrayList<Integer> RCL = new ArrayList<>();
+	        for (Integer cand : sample) {
+	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+	            if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
+	                RCL.add(cand);
+	            }
+	        }
+	
+	        if (RCL.isEmpty()) break;
+	
+	        // 4. Escolhe aleatoriamente um candidato da RCL
+	        Integer chosen = RCL.get(random.nextInt(RCL.size()));
+	
+	        // 5. Atualiza solução
+	        solution.add(chosen);
+	        CL.remove(chosen);
+	        ObjFunction.evaluate(solution);
+	    }
+	
+	    return solution;
+	}
+
 
     /**
      * A main method for testing the GRASP_SCQBF solver.

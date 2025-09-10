@@ -331,7 +331,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         long startTime = System.currentTimeMillis();
 
         GRASP_SCQBF solver = new GRASP_SCQBF(0.15, 100, 
-        		"C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY);
+        		"C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_12.txt", ConstructionType.SAMPLED_GREEDY);
         Solution<Integer> bestSol = solver.solve();
 
         System.out.println("Best Solution Found (Min Cost) = " + bestSol);
@@ -340,8 +340,4 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         long totalTime = endTime - startTime;
         System.out.println("Time = " + (double) totalTime / 1000 + " seg");
     }
-
-   
-    
-    
 }

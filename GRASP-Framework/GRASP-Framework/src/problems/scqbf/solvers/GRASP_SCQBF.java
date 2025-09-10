@@ -140,6 +140,100 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         ObjFunction.evaluate(currentSolution);
         return currentSolution;
     }
+    
+    
+    private Solution<Integer> constructRandomPlusGreedy(int k) {
+    	Solution<Integer> solution = createEmptySol();
+    	ArrayList<Integer> CL = makeCL();
+    	while (!CL.isEmpty()) {
+    		 double maxCost = Double.NEGATIVE_INFINITY;
+    	     double minCost = Double.POSITIVE_INFINITY;
+    	     for (Integer cand : CL) {
+    	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	            if (deltaCost < minCost) minCost = deltaCost;
+    	            if (deltaCost > maxCost) maxCost = deltaCost;
+    	        }
+    	     ArrayList<Integer> RCL = new ArrayList<>();
+    	     for (Integer cand : CL) {
+    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	        if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
+    	            RCL.add(cand);
+    	        }
+             }
+    	     if (RCL.isEmpty()) break;
+    	     // Random plus greedy step - Sorteia até k candidatos da RCL
+    	     ArrayList<Integer> sample = new ArrayList<>();
+    	     Collections.shuffle(RCL, random);
+    	     for (int i = 0; i < Math.min(k, RCL.size()); i++) {
+    	        sample.add(RCL.get(i));
+    	     }
+    	     // Escolhe o melhor da amostra (greedy)
+    	     Integer bestCand = null;
+    	     double bestDelta = Double.POSITIVE_INFINITY;
+    	     for (Integer cand : sample) {
+    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	          if (deltaCost < bestDelta) {
+    	              bestDelta = deltaCost;
+    	              bestCand = cand;
+    	           }
+    	      }
+    	     // Adiciona o melhor candidato à solução
+    	     if (bestCand != null) {
+    	         solution.add(bestCand);
+    	         CL.remove(bestCand);
+    	         ObjFunction.evaluate(solution);
+    	     } else {
+    	         break;
+    	     }
+    	}
+    	return solution;
+    }
+    
+    private Solution<Integer> constructSampledGreedy(int sampleSize) {
+	    Solution<Integer> solution = createEmptySol();
+	    ArrayList<Integer> CL = makeCL();
+	
+	    while (!CL.isEmpty()) {
+	        // 1. Sorteia uma amostra da CL
+	        ArrayList<Integer> sample = new ArrayList<>(CL);
+	        Collections.shuffle(sample, random);
+	
+	        if (sample.size() > sampleSize) {
+	            sample = new ArrayList<>(sample.subList(0, sampleSize));
+	        }
+	
+	        // 2. Encontra min e max custos dentro da amostra
+	        double maxCost = Double.NEGATIVE_INFINITY;
+	        double minCost = Double.POSITIVE_INFINITY;
+	
+	        for (Integer cand : sample) {
+	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+	            if (deltaCost < minCost) minCost = deltaCost;
+	            if (deltaCost > maxCost) maxCost = deltaCost;
+	        }
+	
+	        // 3. Constrói RCL só com base na amostra
+	        ArrayList<Integer> RCL = new ArrayList<>();
+	        for (Integer cand : sample) {
+	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+	            if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
+	                RCL.add(cand);
+	            }
+	        }
+	
+	        if (RCL.isEmpty()) break;
+	
+	        // 4. Escolhe aleatoriamente um candidato da RCL
+	        Integer chosen = RCL.get(random.nextInt(RCL.size()));
+	
+	        // 5. Atualiza solução
+	        solution.add(chosen);
+	        CL.remove(chosen);
+	        ObjFunction.evaluate(solution);
+	    }
+	
+	    return solution;
+	}
 
     /**
      * The local search phase of the GRASP iteration. It receives a feasible
@@ -209,120 +303,45 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         return sol;
     }
     
-    private Solution<Integer> constructRandomPlusGreedy(int k) {
-    	Solution<Integer> solution = createEmptySol();
-    	ArrayList<Integer> CL = makeCL();
-    	while (!CL.isEmpty()) {
-    		 double maxCost = Double.NEGATIVE_INFINITY;
-    	     double minCost = Double.POSITIVE_INFINITY;
-    	     for (Integer cand : CL) {
-    	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	            if (deltaCost < minCost) minCost = deltaCost;
-    	            if (deltaCost > maxCost) maxCost = deltaCost;
-    	        }
-    	     ArrayList<Integer> RCL = new ArrayList<>();
-    	     for (Integer cand : CL) {
-    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	        if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
-    	            RCL.add(cand);
-    	        }
-             }
-    	     if (RCL.isEmpty()) break;
-    	     // Random plus greedy step - Sorteia até k candidatos da RCL
-    	     ArrayList<Integer> sample = new ArrayList<>();
-    	     Collections.shuffle(RCL, random);
-    	     for (int i = 0; i < Math.min(k, RCL.size()); i++) {
-    	        sample.add(RCL.get(i));
-    	     }
-    	     // Escolhe o melhor da amostra (greedy)
-    	     Integer bestCand = null;
-    	     double bestDelta = Double.POSITIVE_INFINITY;
-    	     for (Integer cand : sample) {
-    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	          if (deltaCost < bestDelta) {
-    	              bestDelta = deltaCost;
-    	              bestCand = cand;
-    	           }
-    	      }
-    	     // Adiciona o melhor candidato à solução
-    	     if (bestCand != null) {
-    	         solution.add(bestCand);
-    	         CL.remove(bestCand);
-    	         ObjFunction.evaluate(solution);
-    	     } else {
-    	         break;
-    	     }
-    	}
-    	return solution;
+    @Override 
+    public Solution<Integer> createEmptySol() {
+        Solution<Integer> sol = new Solution<>();
+        sol.cost = 0.0;
+        return sol;
     }
     
-
-	private Solution<Integer> constructSampledGreedy(int sampleSize) {
-	    Solution<Integer> solution = createEmptySol();
-	    ArrayList<Integer> CL = makeCL();
+    @Override public ArrayList<Integer> makeCL() {
+        ArrayList<Integer> cl = new ArrayList<>();
+        for (int i = 0; i < ObjFunction.getDomainSize(); i++) {
+            cl.add(i);
+        }
+        return cl;
+    }
+    
+    
+    @Override public ArrayList<Integer> makeRCL() { return null; }
+    @Override public void updateCL() { }
+    @Override public Solution<Integer> localSearch() { return null; }
 	
-	    while (!CL.isEmpty()) {
-	        // 1. Sorteia uma amostra da CL
-	        ArrayList<Integer> sample = new ArrayList<>(CL);
-	        Collections.shuffle(sample, random);
-	
-	        if (sample.size() > sampleSize) {
-	            sample = new ArrayList<>(sample.subList(0, sampleSize));
-	        }
-	
-	        // 2. Encontra min e max custos dentro da amostra
-	        double maxCost = Double.NEGATIVE_INFINITY;
-	        double minCost = Double.POSITIVE_INFINITY;
-	
-	        for (Integer cand : sample) {
-	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-	            if (deltaCost < minCost) minCost = deltaCost;
-	            if (deltaCost > maxCost) maxCost = deltaCost;
-	        }
-	
-	        // 3. Constrói RCL só com base na amostra
-	        ArrayList<Integer> RCL = new ArrayList<>();
-	        for (Integer cand : sample) {
-	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-	            if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
-	                RCL.add(cand);
-	            }
-	        }
-	
-	        if (RCL.isEmpty()) break;
-	
-	        // 4. Escolhe aleatoriamente um candidato da RCL
-	        Integer chosen = RCL.get(random.nextInt(RCL.size()));
-	
-	        // 5. Atualiza solução
-	        solution.add(chosen);
-	        CL.remove(chosen);
-	        ObjFunction.evaluate(solution);
-	    }
-	
-	    return solution;
-	}
-
 
     /**
      * A main method for testing the GRASP_SCQBF solver.
      */
     public static void main(String[] args) throws IOException {
         long startTime = System.currentTimeMillis();
-        
-        GRASP_SCQBF solver = new GRASP_SCQBF(0.15, 1000, "instances/scqbf/instance_9.txt");
+
+        GRASP_SCQBF solver = new GRASP_SCQBF(0.15, 100, 
+        		"C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY);
         Solution<Integer> bestSol = solver.solve();
-        
+
         System.out.println("Best Solution Found (Min Cost) = " + bestSol);
-        
+
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
         System.out.println("Time = " + (double) totalTime / 1000 + " seg");
     }
 
-    @Override public Solution<Integer> createEmptySol() { return null; }
-    @Override public ArrayList<Integer> makeCL() { return null; }
-    @Override public ArrayList<Integer> makeRCL() { return null; }
-    @Override public void updateCL() { }
-    @Override public Solution<Integer> localSearch() { return null; }
+   
+    
+    
 }

@@ -109,14 +109,28 @@ public class SCQBF implements Evaluator<Integer> {
 
             // Part 4: Read the n-1 lines of the upper triangular quadratic cost matrix.
             for (int i = 0; i < size - 1; i++) {
-                String[] interactionCosts = reader.readLine().trim().split("\\s+");
-                for (int j = 0; j < interactionCosts.length; j++) {
+                String line = reader.readLine();
+                if (line == null) {
+                    throw new IOException("Arquivo terminou antes de ler toda a matriz quadrática (i=" + i + ")");
+                }
+                String[] interactionCosts = line.trim().split("\\s+");
+
+                int expected = size - (i + 1);
+                if (interactionCosts.length != expected) {
+                    throw new IOException(
+                        "Erro na linha " + (i+1) + " da matriz quadrática: esperado " +
+                        expected + " valores, mas veio " + interactionCosts.length
+                    );
+                }
+
+                for (int j = 0; j < expected; j++) {
                     double cost = Double.parseDouble(interactionCosts[j]);
                     int col = i + 1 + j;
                     A[i][col] = cost;
                     A[col][i] = cost;
                 }
             }
+
             
             return size;
         }

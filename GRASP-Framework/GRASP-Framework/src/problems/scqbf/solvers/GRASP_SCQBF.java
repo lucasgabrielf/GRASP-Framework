@@ -197,6 +197,53 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
         }
         return sol;
     }
+    
+    private Solution<Integer> constructRandomPlusGreedy(int k) {
+    	Solution<Integer> solution = createEmptySol();
+    	ArrayList<Integer> CL = makeCL();
+    	while (!CL.isEmpty()) {
+    		 double maxCost = Double.NEGATIVE_INFINITY;
+    	     double minCost = Double.POSITIVE_INFINITY;
+    	     for (Integer cand : CL) {
+    	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	            if (deltaCost < minCost) minCost = deltaCost;
+    	            if (deltaCost > maxCost) maxCost = deltaCost;
+    	        }
+    	     ArrayList<Integer> RCL = new ArrayList<>();
+    	     for (Integer cand : CL) {
+    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	        if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
+    	            RCL.add(cand);
+    	        }
+             }
+    	     if (RCL.isEmpty()) break;
+    	     // Random plus greedy step - Sorteia até k candidatos da RCL
+    	     ArrayList<Integer> sample = new ArrayList<>();
+    	     Collections.shuffle(RCL, random);
+    	     for (int i = 0; i < Math.min(k, RCL.size()); i++) {
+    	        sample.add(RCL.get(i));
+    	     }
+    	     // Escolhe o melhor da amostra (greedy)
+    	     Integer bestCand = null;
+    	     double bestDelta = Double.POSITIVE_INFINITY;
+    	     for (Integer cand : sample) {
+    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+    	          if (deltaCost < bestDelta) {
+    	              bestDelta = deltaCost;
+    	              bestCand = cand;
+    	           }
+    	      }
+    	     // Adiciona o melhor candidato à solução
+    	     if (bestCand != null) {
+    	         solution.add(bestCand);
+    	         CL.remove(bestCand);
+    	         ObjFunction.evaluate(solution);
+    	     } else {
+    	         break;
+    	     }
+    	}
+    	return solution;
+    }
 
     /**
      * A main method for testing the GRASP_SCQBF solver.

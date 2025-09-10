@@ -25,7 +25,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
     private final SCQBF scqbfObjectiveFunction;
     private final Random random = new Random();
-    
+    private final SearchStrategy searchStrategy;
     public enum ConstructionType { SUBTRACTIVE, RANDOM_GREEDY, SAMPLED_GREEDY }
     private final ConstructionType constructionType;
 
@@ -44,8 +44,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
         @Override
         public int compareTo(RemovalCandidate other) {
-            // Sort in descending order of cost
-            return other.cost.compareTo(this.cost);
+            return this.cost.compareTo(other.cost);
         }
     }
 
@@ -57,10 +56,11 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
      * @param filename  
      * @throws IOException
      */
-    public GRASP_SCQBF(Double alpha, Integer iterations, String filename, ConstructionType constructionType) throws IOException {
+    public GRASP_SCQBF(Double alpha, Integer iterations, String filename, ConstructionType constructionType, SearchStrategy searchStrategy) throws IOException {
         super(new SCQBF(filename), alpha, iterations);
         this.scqbfObjectiveFunction = (SCQBF) this.ObjFunction;
         this.constructionType = constructionType;
+        this.searchStrategy = searchStrategy;
     }
 
     /**
@@ -85,8 +85,8 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
                 currentSol = runSingleSubtractiveIteration();
         	}
         	// Phase 2: Local Search
-            currentSol = localSearch(currentSol);
-            if (bestSol == null || currentSol.cost < bestSol.cost) {
+            currentSol = localSearch(currentSol, searchStrategy);
+            if (bestSol == null || currentSol.cost > bestSol.cost) {
                 bestSol = new Solution<>(currentSol);
             }
         }
@@ -120,14 +120,16 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
             // 3. Build the Restricted Candidate List (RCL) for removals.
             Collections.sort(removableCandidates);
-            double maxCost = removableCandidates.get(0).cost;
-            double minCost = removableCandidates.get(removableCandidates.size() - 1).cost;
-            double threshold = maxCost - alpha * (maxCost - minCost);
+            double minCost = removableCandidates.get(0).cost;
+            double maxCost = removableCandidates.get(removableCandidates.size() - 1).cost;
+            double threshold = minCost + alpha * (maxCost - minCost);
             
             List<RemovalCandidate> rcl = new ArrayList<>();
             for (RemovalCandidate cand : removableCandidates) {
-                if (cand.cost >= threshold) {
+                if (cand.cost <= threshold) {
                     rcl.add(cand);
+                } else {
+                    break;
                 }
             }
 
@@ -237,19 +239,31 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
     /**
      * The local search phase of the GRASP iteration. It receives a feasible
-     * solution and tries to improve it by exploring its 1-1 exchange neighborhood.
+     * solution and a searchStrategy.
      *
      * @param solution The solution to be improved.
+     * @param strategy The local search strategy to be used (FIRST_IMPROVING or BEST_IMPROVING).
      * @return The improved solution (a local optimum).
      */
-    public Solution<Integer> localSearch(Solution<Integer> solution) {
-        Double minDeltaCost;
+    public Solution<Integer> localSearch(Solution<Integer> solution, SearchStrategy strategy) {
+        if (strategy == SearchStrategy.FIRST_IMPROVING) {
+            return firstImprovingLocalSearch(solution);
+        } else {
+            return bestImprovingLocalSearch(solution);
+        }
+    }
+
+    /**
+     * Best-improving implementation: evaluates all possible exchanges and applies the best one
+     * (if any) that improves the solution. Repeats until no further improvement is possible.
+     */
+    private Solution<Integer> bestImprovingLocalSearch(Solution<Integer> solution) {
+        Double maxDeltaCost;
         Integer bestCandIn = null, bestCandOut = null;
 
         do {
-            minDeltaCost = 0.0;
+            maxDeltaCost = 0.0;
 
-            // Create a list of candidates NOT in the solution (CL)
             ArrayList<Integer> CL = new ArrayList<>();
             for (int i = 0; i < scqbfObjectiveFunction.getDomainSize(); i++) {
                 if (!solution.contains(i)) {
@@ -257,22 +271,18 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
                 }
             }
 
-            // Evaluate all possible 1-1 exchanges (swaps)
-            // Iterate on a copy of the solution to avoid ConcurrentModificationException
             for (Integer candOut : new ArrayList<>(solution)) {
                 for (Integer candIn : CL) {
                     
-                    // Create a temporary solution to check feasibility of the swap
                     Solution<Integer> tempSol = new Solution<>(solution);
                     tempSol.remove(candOut);
                     tempSol.add(candIn);
 
                     if (scqbfObjectiveFunction.isFeasible(tempSol)) {
-                        // If the swap is feasible, calculate its impact on the cost
                         double deltaCost = scqbfObjectiveFunction.evaluateExchangeCost(candIn, candOut, solution);
 
-                        if (deltaCost < minDeltaCost) {
-                            minDeltaCost = deltaCost;
+                        if (deltaCost > maxDeltaCost) {
+                            maxDeltaCost = deltaCost;
                             bestCandIn = candIn;
                             bestCandOut = candOut;
                         }
@@ -280,18 +290,62 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
                 }
             }
 
-            // If a cost-improving move was found, apply it to the solution
-            if (minDeltaCost < -1e-9) { // Use a small epsilon for floating point comparison
+            if (maxDeltaCost > 1e-9) {
                 solution.remove(bestCandOut);
                 solution.add(bestCandIn);
-                scqbfObjectiveFunction.evaluate(solution); // Recalculate cost
+                scqbfObjectiveFunction.evaluate(solution);
             }
 
-        } while (minDeltaCost < -1e-9);
+        } while (maxDeltaCost > 1e-9);
 
         return solution;
     }
     
+    /**
+     * First-improving implementation: applies the first improving exchange found.
+     * As soon as a delta < 0 is found, it applies it and restarts the search.
+     */
+    private Solution<Integer> firstImprovingLocalSearch(Solution<Integer> solution) {
+        boolean improvementFound;
+
+        do {
+            improvementFound = false;
+
+            ArrayList<Integer> CL = new ArrayList<>();
+            for (int i = 0; i < scqbfObjectiveFunction.getDomainSize(); i++) {
+                if (!solution.contains(i)) {
+                    CL.add(i);
+                }
+            }
+
+            searchLoop: 
+            for (Integer candOut : new ArrayList<>(solution)) {
+                for (Integer candIn : CL) {
+                    
+                    Solution<Integer> tempSol = new Solution<>(solution);
+                    tempSol.remove(candOut);
+                    tempSol.add(candIn);
+
+                    if (scqbfObjectiveFunction.isFeasible(tempSol)) {
+                        double deltaCost = scqbfObjectiveFunction.evaluateExchangeCost(candIn, candOut, solution);
+
+                        if (deltaCost > 1e-9) {
+                            solution.remove(candOut);
+                            solution.add(candIn);
+                            scqbfObjectiveFunction.evaluate(solution);
+                            
+                            improvementFound = true;
+                            break searchLoop; 
+                        }
+                    }
+                }
+            }
+
+        } while (improvementFound);
+
+        return solution;
+    }
+
     /**
      * Creates a full solution where all possible sets are included.
      */
@@ -329,15 +383,23 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
      */
     public static void main(String[] args) throws IOException {
         long startTime = System.currentTimeMillis();
-
-        GRASP_SCQBF solver = new GRASP_SCQBF(0.15, 100, 
-        		"C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY);
-        Solution<Integer> bestSol = solver.solve();
-
-        System.out.println("Best Solution Found (Min Cost) = " + bestSol);
-
+        
+        GRASP_SCQBF graspFirst = new GRASP_SCQBF(0.15, 1000, "GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.FIRST_IMPROVING);
+        Solution<Integer> solGraspFirst = graspFirst.solve();
+        System.out.println("Solução Padrão (First-Improving, alpha=0.15): " + solGraspFirst);
+        
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
+        System.out.println("Time = " + (double) totalTime / 1000 + " seg");
+
+        startTime = System.currentTimeMillis();
+        
+        GRASP_SCQBF graspBest = new GRASP_SCQBF(0.15, 1000, "GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.BEST_IMPROVING);
+        Solution<Integer> solGraspBest = graspBest.solve();
+        System.out.println("Solução Padrão (Best-Improving, alpha=0.15): " + solGraspBest);
+        
+        endTime = System.currentTimeMillis();
+        totalTime = endTime - startTime;
         System.out.println("Time = " + (double) totalTime / 1000 + " seg");
     }
 

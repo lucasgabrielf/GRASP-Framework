@@ -144,52 +144,41 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
     }
     
     
-    private Solution<Integer> constructRandomPlusGreedy(int k) {
-    	Solution<Integer> solution = createEmptySol();
-    	ArrayList<Integer> CL = makeCL();
-    	while (!CL.isEmpty()) {
-    		 double maxCost = Double.NEGATIVE_INFINITY;
-    	     double minCost = Double.POSITIVE_INFINITY;
-    	     for (Integer cand : CL) {
-    	            double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	            if (deltaCost < minCost) minCost = deltaCost;
-    	            if (deltaCost > maxCost) maxCost = deltaCost;
-    	        }
-    	     ArrayList<Integer> RCL = new ArrayList<>();
-    	     for (Integer cand : CL) {
-    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	        if (deltaCost <= minCost + alpha * (maxCost - minCost)) {
-    	            RCL.add(cand);
-    	        }
-             }
-    	     if (RCL.isEmpty()) break;
-    	     // Random plus greedy step - Sorteia até k candidatos da RCL
-    	     ArrayList<Integer> sample = new ArrayList<>();
-    	     Collections.shuffle(RCL, random);
-    	     for (int i = 0; i < Math.min(k, RCL.size()); i++) {
-    	        sample.add(RCL.get(i));
-    	     }
-    	     // Escolhe o melhor da amostra (greedy)
-    	     Integer bestCand = null;
-    	     double bestDelta = Double.POSITIVE_INFINITY;
-    	     for (Integer cand : sample) {
-    	        double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
-    	          if (deltaCost < bestDelta) {
-    	              bestDelta = deltaCost;
-    	              bestCand = cand;
-    	           }
-    	      }
-    	     // Adiciona o melhor candidato à solução
-    	     if (bestCand != null) {
-    	         solution.add(bestCand);
-    	         CL.remove(bestCand);
-    	         ObjFunction.evaluate(solution);
-    	     } else {
-    	         break;
-    	     }
-    	}
-    	return solution;
+    private Solution<Integer> constructRandomPlusGreedy(int p) {
+        Solution<Integer> solution = createEmptySol();
+        ArrayList<Integer> CL = makeCL();
+
+        // --- Fase 1: passos aleatórios ---
+        for (int step = 0; step < p && !CL.isEmpty(); step++) {
+            // escolhe aleatoriamente da CL
+            Integer chosen = CL.get(random.nextInt(CL.size()));
+            solution.add(chosen);
+            CL.remove(chosen);
+            ObjFunction.evaluate(solution);
+        }
+
+        // --- Fase 2: completa de forma puramente gulosa ---
+        while (!CL.isEmpty()) {
+            Integer bestCand = null;
+            double bestDelta = Double.POSITIVE_INFINITY;
+
+            for (Integer cand : CL) {
+                double deltaCost = ObjFunction.evaluateInsertionCost(cand, solution);
+                if (deltaCost < bestDelta) {
+                    bestDelta = deltaCost;
+                    bestCand = cand;
+                }
+            }
+
+            if (bestCand == null) break;
+            solution.add(bestCand);
+            CL.remove(bestCand);
+            ObjFunction.evaluate(solution);
+        }
+
+        return solution;
     }
+    
     
     private Solution<Integer> constructSampledGreedy(int sampleSize) {
 	    Solution<Integer> solution = createEmptySol();
@@ -384,7 +373,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
     public static void main(String[] args) throws IOException {
         long startTime = System.currentTimeMillis();
         
-        GRASP_SCQBF graspFirst = new GRASP_SCQBF(0.15, 1000, "GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.FIRST_IMPROVING);
+        GRASP_SCQBF graspFirst = new GRASP_SCQBF(0.15, 1000, "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.FIRST_IMPROVING);
         Solution<Integer> solGraspFirst = graspFirst.solve();
         System.out.println("Solução Padrão (First-Improving, alpha=0.15): " + solGraspFirst);
         
@@ -394,7 +383,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
 
         startTime = System.currentTimeMillis();
         
-        GRASP_SCQBF graspBest = new GRASP_SCQBF(0.15, 1000, "GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.BEST_IMPROVING);
+        GRASP_SCQBF graspBest = new GRASP_SCQBF(0.15, 1000, "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.BEST_IMPROVING);
         Solution<Integer> solGraspBest = graspBest.solve();
         System.out.println("Solução Padrão (Best-Improving, alpha=0.15): " + solGraspBest);
         

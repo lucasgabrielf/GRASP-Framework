@@ -1,4 +1,4 @@
-package problems.scqbf.solvers;
+ package problems.scqbf.solvers;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -371,25 +371,44 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
      * A main method for testing the GRASP_SCQBF solver.
      */
     public static void main(String[] args) throws IOException {
-        long startTime = System.currentTimeMillis();
-        
-        GRASP_SCQBF graspFirst = new GRASP_SCQBF(0.15, 1000, "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.FIRST_IMPROVING);
-        Solution<Integer> solGraspFirst = graspFirst.solve();
-        System.out.println("Solução Padrão (First-Improving, alpha=0.15): " + solGraspFirst);
-        
-        long endTime = System.currentTimeMillis();
-        long totalTime = endTime - startTime;
-        System.out.println("Time = " + (double) totalTime / 1000 + " seg");
+        String instancePath = "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt";
 
-        startTime = System.currentTimeMillis();
-        
-        GRASP_SCQBF graspBest = new GRASP_SCQBF(0.15, 1000, "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_01.txt", ConstructionType.SAMPLED_GREEDY, SearchStrategy.BEST_IMPROVING);
-        Solution<Integer> solGraspBest = graspBest.solve();
-        System.out.println("Solução Padrão (Best-Improving, alpha=0.15): " + solGraspBest);
-        
-        endTime = System.currentTimeMillis();
-        totalTime = endTime - startTime;
-        System.out.println("Time = " + (double) totalTime / 1000 + " seg");
+        // Configurações de alpha
+        double alpha1 = 0.15;
+        double alpha2 = 0.50;
+        int iterations = 1000;
+
+        // 1. PADRÃO
+        runExperiment("PADRÃO", alpha1, ConstructionType.SUBTRACTIVE, SearchStrategy.FIRST_IMPROVING, iterations, instancePath);
+
+        // 2. PADRÃO + ALPHA
+        runExperiment("PADRÃO+ALPHA", alpha2, ConstructionType.SUBTRACTIVE, SearchStrategy.FIRST_IMPROVING, iterations, instancePath);
+
+        // 3. PADRÃO + BEST
+        runExperiment("PADRÃO+BEST", alpha1, ConstructionType.SUBTRACTIVE, SearchStrategy.BEST_IMPROVING, iterations, instancePath);
+
+        // 4. PADRÃO + HC1
+        runExperiment("PADRÃO+HC1", alpha1, ConstructionType.RANDOM_GREEDY, SearchStrategy.FIRST_IMPROVING, iterations, instancePath);
+
+        // 5. PADRÃO + HC2
+        runExperiment("PADRÃO+HC2", alpha1, ConstructionType.SAMPLED_GREEDY, SearchStrategy.FIRST_IMPROVING, iterations, instancePath);
+    }
+
+    // Função auxiliar para reduzir repetição
+    private static void runExperiment(String label, double alpha, ConstructionType construction,
+                                      SearchStrategy strategy, int iterations, String instancePath) throws IOException {
+        long start = System.currentTimeMillis();
+
+        GRASP_SCQBF grasp = new GRASP_SCQBF(alpha, iterations, instancePath, construction, strategy);
+        Solution<Integer> sol = grasp.solve();
+
+        long end = System.currentTimeMillis();
+        double totalTime = (end - start) / 1000.0;
+
+        System.out.printf("%s (alpha=%.2f, constr=%s, search=%s)%n", 
+            label, alpha, construction, strategy);
+        System.out.println(" → Solução: " + sol);
+        System.out.println(" → Tempo: " + totalTime + " seg\n");
     }
 
    

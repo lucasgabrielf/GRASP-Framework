@@ -371,7 +371,7 @@ public class GRASP_SCQBF extends AbstractGRASP<Integer> {
      * A main method for testing the GRASP_SCQBF solver.
      */
     public static void main(String[] args) throws IOException {
-        String instancePath = "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_07.txt";
+        String instancePath = "C:/Users/lilia/OneDrive/Estudo/Otimização Combinatório - projeto/T2/framework bruno/GRASP-Framework/GRASP-Framework/GRASP-Framework/instances/instancias_novas/instancia_08.txt";
 
         // Configurações de alpha
         double alpha1 = 0.15;
